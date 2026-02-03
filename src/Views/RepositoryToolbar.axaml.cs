@@ -454,6 +454,15 @@ namespace SourceGit.Views
             }
         }
 
+        private void RefreshAll(object sender, RoutedEventArgs e)
+        {
+            if (DataContext is ViewModels.Repository repo)
+            {
+                repo.RefreshAll();
+                e.Handled = true;
+            }
+        }
+
         private void OpenCustomActionMenu(object sender, RoutedEventArgs ev)
         {
             if (DataContext is ViewModels.Repository repo && sender is Control control)
