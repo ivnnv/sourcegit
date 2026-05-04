@@ -454,6 +454,7 @@ namespace SourceGit.Views
             }
         }
 
+        // [fork:refresh-state] Handler for the manual refresh button + Ctrl/Cmd+R hotkey
         private void RefreshAll(object sender, RoutedEventArgs e)
         {
             if (DataContext is ViewModels.Repository repo)
