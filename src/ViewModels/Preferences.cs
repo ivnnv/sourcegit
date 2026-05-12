@@ -105,10 +105,18 @@ namespace SourceGit.ViewModels
             set => SetProperty(ref _editorTabWidth, value);
         }
 
+        public const double MinZoom = 0.5;
+        public const double MaxZoom = 3.0;
+        public const double ZoomStep = 0.01;
+
         public double Zoom
         {
             get => _zoom;
-            set => SetProperty(ref _zoom, value);
+            set
+            {
+                var clamped = double.IsFinite(value) ? Math.Clamp(value, MinZoom, MaxZoom) : 1.0;
+                SetProperty(ref _zoom, clamped);
+            }
         }
 
         public LayoutInfo Layout
