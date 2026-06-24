@@ -73,6 +73,13 @@ namespace SourceGit.ViewModels
             LoadContent();
         }
 
+        // [fork:branch-diff] Public reload entry, used by Compare to keep stacked DiffViews in sync
+        // when global Preferences (whitespace/full-text/side-by-side) change on a sibling panel.
+        public void Refresh()
+        {
+            LoadContent();
+        }
+
         public void IncrUnified()
         {
             UnifiedLines = _unifiedLines + 1;
