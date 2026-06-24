@@ -35,8 +35,14 @@
 
     <ListBox.ItemTemplate>
       <DataTemplate DataType="vm:BranchTreeNode">
+        <!-- [fork:custom-branch-sort] DragDrop hooks on every node Border for branch reordering when sort mode is Custom -->
         <Border Background="Transparent"
                 PointerPressed="OnNodePointerPressed"
+                PointerReleased="OnDragPointerReleased"
+                PointerMoved="OnDragPointerMoved"
+                DragDrop.AllowDrop="True"
+                DragDrop.DragOver="OnDragOver"
+                DragDrop.Drop="OnDrop"
                 ToolTip.Tip="{Binding Backend}"
                 ToolTip.Placement="Right">
           <Border.DataTemplates>
@@ -117,13 +123,24 @@
                 Margin="{Binding Depth, Converter={x:Static c:IntConverters.ToTreeMargin}}"
                 ColumnDefinitions="16,*">
 
-            <!-- Tree Expander -->
+            <!-- Tree Expander / Drag Grip -->
             <v:BranchTreeNodeToggleButton Grid.Column="0"
                                           Classes="tree_expander"
                                           Focusable="False"
                                           HorizontalAlignment="Center"
                                           IsChecked="{Binding IsExpanded, Mode=OneWay}"
                                           IsVisible="{Binding !IsBranch}"/>
+            <!-- [fork:custom-branch-sort] Drag handle shown only when sort mode is Custom -->
+            <Path Grid.Column="0"
+                  Width="6" Height="10"
+                  Stretch="Uniform"
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Center"
+                  Data="{StaticResource Icons.GripVertical}"
+                  Fill="{DynamicResource Brush.FG2}" Opacity="0.4"
+                  Cursor="SizeAll"
+                  IsVisible="{Binding $parent[v:BranchTree].IsCustomSort}"
+                  IsHitTestVisible="False"/>
 
             <!-- Content Area (allows double-clicking) -->
             <Grid Grid.Column="1"

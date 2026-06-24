@@ -527,26 +527,36 @@ namespace SourceGit.Views
         {
             if (sender is Button button && DataContext is ViewModels.Repository repo)
             {
-                var isSortByName = repo.IsSortingLocalBranchByName;
+                var currentMode = repo.LocalBranchSortMode;
+
                 var byNameAsc = new MenuItem();
                 byNameAsc.Header = App.Text("Repository.BranchSort.ByName");
-                if (isSortByName)
+                if (currentMode == Models.BranchSortMode.Name)
                     byNameAsc.Icon = this.CreateMenuIcon("Icons.Check");
                 byNameAsc.Click += (_, ev) =>
                 {
-                    if (!isSortByName)
-                        repo.IsSortingLocalBranchByName = true;
+                    repo.LocalBranchSortMode = Models.BranchSortMode.Name;
                     ev.Handled = true;
                 };
 
                 var byCommitterDate = new MenuItem();
                 byCommitterDate.Header = App.Text("Repository.BranchSort.ByCommitterDate");
-                if (!isSortByName)
+                if (currentMode == Models.BranchSortMode.CommitterDate)
                     byCommitterDate.Icon = this.CreateMenuIcon("Icons.Check");
                 byCommitterDate.Click += (_, ev) =>
                 {
-                    if (isSortByName)
-                        repo.IsSortingLocalBranchByName = false;
+                    repo.LocalBranchSortMode = Models.BranchSortMode.CommitterDate;
+                    ev.Handled = true;
+                };
+
+                // [fork:custom-branch-sort] Custom sort menu entry for local branches
+                var byCustom = new MenuItem();
+                byCustom.Header = App.Text("Repository.BranchSort.Custom");
+                if (currentMode == Models.BranchSortMode.Custom)
+                    byCustom.Icon = this.CreateMenuIcon("Icons.Check");
+                byCustom.Click += (_, ev) =>
+                {
+                    repo.LocalBranchSortMode = Models.BranchSortMode.Custom;
                     ev.Handled = true;
                 };
 
@@ -554,6 +564,7 @@ namespace SourceGit.Views
                 menu.Placement = PlacementMode.BottomEdgeAlignedLeft;
                 menu.Items.Add(byNameAsc);
                 menu.Items.Add(byCommitterDate);
+                menu.Items.Add(byCustom);
                 menu.Open(button);
             }
 
@@ -564,26 +575,36 @@ namespace SourceGit.Views
         {
             if (sender is Button button && DataContext is ViewModels.Repository repo)
             {
-                var isSortByName = repo.IsSortingRemoteBranchByName;
+                var currentMode = repo.RemoteBranchSortMode;
+
                 var byNameAsc = new MenuItem();
                 byNameAsc.Header = App.Text("Repository.BranchSort.ByName");
-                if (isSortByName)
+                if (currentMode == Models.BranchSortMode.Name)
                     byNameAsc.Icon = this.CreateMenuIcon("Icons.Check");
                 byNameAsc.Click += (_, ev) =>
                 {
-                    if (!isSortByName)
-                        repo.IsSortingRemoteBranchByName = true;
+                    repo.RemoteBranchSortMode = Models.BranchSortMode.Name;
                     ev.Handled = true;
                 };
 
                 var byCommitterDate = new MenuItem();
                 byCommitterDate.Header = App.Text("Repository.BranchSort.ByCommitterDate");
-                if (!isSortByName)
+                if (currentMode == Models.BranchSortMode.CommitterDate)
                     byCommitterDate.Icon = this.CreateMenuIcon("Icons.Check");
                 byCommitterDate.Click += (_, ev) =>
                 {
-                    if (isSortByName)
-                        repo.IsSortingRemoteBranchByName = false;
+                    repo.RemoteBranchSortMode = Models.BranchSortMode.CommitterDate;
+                    ev.Handled = true;
+                };
+
+                // [fork:custom-branch-sort] Custom sort menu entry for remote branches
+                var byCustom = new MenuItem();
+                byCustom.Header = App.Text("Repository.BranchSort.Custom");
+                if (currentMode == Models.BranchSortMode.Custom)
+                    byCustom.Icon = this.CreateMenuIcon("Icons.Check");
+                byCustom.Click += (_, ev) =>
+                {
+                    repo.RemoteBranchSortMode = Models.BranchSortMode.Custom;
                     ev.Handled = true;
                 };
 
@@ -591,6 +612,7 @@ namespace SourceGit.Views
                 menu.Placement = PlacementMode.BottomEdgeAlignedLeft;
                 menu.Items.Add(byNameAsc);
                 menu.Items.Add(byCommitterDate);
+                menu.Items.Add(byCustom);
                 menu.Open(button);
             }
 

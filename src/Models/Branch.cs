@@ -6,6 +6,7 @@ namespace SourceGit.Models
     {
         Name = 0,
         CommitterDate,
+        Custom, // [fork:custom-branch-sort] User-defined drag-and-drop ordering
     }
 
     public class Branch
