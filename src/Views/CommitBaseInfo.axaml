@@ -177,7 +177,10 @@
                           Cursor="Hand"
                           Click="OnCopyRefName"
                           ToolTip.Tip="{DynamicResource Text.Copy}">
-                    <Path Width="10" Height="10" Data="{StaticResource Icons.Copy}" Fill="{DynamicResource Brush.FG2}"/>
+                    <Grid>
+                      <Path Tag="copy" Width="10" Height="10" Data="{StaticResource Icons.Copy}" Fill="{DynamicResource Brush.FG2}"/>
+                      <Path Tag="check" Width="12" Height="12" Data="{StaticResource Icons.Check}" Fill="Green" IsVisible="False"/>
+                    </Grid>
                   </Button>
                 </StackPanel>
               </DataTemplate>
