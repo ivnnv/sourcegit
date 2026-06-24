@@ -3,12 +3,29 @@ using System.Globalization;
 
 using Avalonia.Data.Converters;
 using Avalonia.Input;
+using Avalonia.Media;
 using Avalonia.Styling;
 
 namespace SourceGit.Converters
 {
     public static class StringConverters
     {
+        // [fork:colored-tabs] Picks black/white text brush by luminance of tab background
+        public static readonly FuncValueConverter<string, IBrush> ToTabTextBrush =
+            new FuncValueConverter<string, IBrush>(v =>
+            {
+                if (string.IsNullOrEmpty(v))
+                    return Brushes.White;
+
+                var hash = v.GetHashCode();
+                var r = Math.Clamp((hash & 0xFF0000) >> 16, 60, 220);
+                var g = Math.Clamp((hash & 0x00FF00) >> 8, 60, 220);
+                var b = Math.Clamp(hash & 0x0000FF, 60, 220);
+
+                var luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+
+                return luminance > 0.5 ? Brushes.Black : Brushes.White;
+            });
         public class ToLocaleConverter : IValueConverter
         {
             public object Convert(object value, Type targetType, object parameter, CultureInfo culture)

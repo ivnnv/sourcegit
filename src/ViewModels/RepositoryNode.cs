@@ -39,6 +39,25 @@ namespace SourceGit.ViewModels
             set => SetProperty(ref _bookmark, value);
         }
 
+        // [fork:colored-tabs] Custom bookmark color + tab color (preset index + custom uint)
+        public uint BookmarkCustom
+        {
+            get => _bookmarkCustom;
+            set => SetProperty(ref _bookmarkCustom, value);
+        }
+
+        public int TabColor
+        {
+            get => _tabColor;
+            set => SetProperty(ref _tabColor, value);
+        }
+
+        public uint TabColorCustom
+        {
+            get => _tabColorCustom;
+            set => SetProperty(ref _tabColorCustom, value);
+        }
+
         public bool IsRepository
         {
             get => _isRepository;
@@ -228,6 +247,10 @@ namespace SourceGit.ViewModels
         private string _name = string.Empty;
         private bool _isRepository = false;
         private int _bookmark = 0;
+        // [fork:colored-tabs] Backing fields for tab/bookmark color customization
+        private uint _bookmarkCustom = 0;
+        private int _tabColor = 0;
+        private uint _tabColorCustom = 0;
         private bool _isExpanded = false;
         private bool _isVisible = true;
         private Models.RepositoryStatus _status = null;

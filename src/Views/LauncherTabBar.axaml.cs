@@ -81,6 +81,30 @@ namespace SourceGit.Views
             var separatorPen = new Pen(new SolidColorBrush(ActualThemeVariant == ThemeVariant.Dark ? Colors.White : Colors.Black, 0.2));
             var separatorY = (height - 18) * 0.5 + 1;
 
+            // [fork:colored-tabs] Draw colored backgrounds for non-selected tabs with tab colors
+            for (var i = 0; i < count; i++)
+            {
+                if (i == selectedIdx)
+                    continue;
+
+                var container = LauncherTabsList.ContainerFromIndex(i);
+                if (container == null)
+                    continue;
+
+                var page = LauncherTabsList.Items[i] as ViewModels.LauncherPage;
+                var colorBrush = GetTabColorBrush(page?.Node);
+                if (colorBrush != null)
+                {
+                    var tabStartX = container.Bounds.Left - startX + LauncherTabsScroller.Bounds.X;
+                    if (tabStartX < LauncherTabsScroller.Bounds.Right && tabStartX + container.Bounds.Width > LauncherTabsScroller.Bounds.X)
+                    {
+                        var tabBrush = new SolidColorBrush(colorBrush.Color, 0.15);
+                        var tabRect = new Rect(tabStartX, 2, container.Bounds.Width, height - 2);
+                        context.DrawRectangle(tabBrush, null, tabRect, 4, 4);
+                    }
+                }
+            }
+
             if (!_isScrollButtonVisible && selectedIdx > 0)
             {
                 var container = LauncherTabsList.ContainerFromIndex(0);
@@ -156,7 +180,13 @@ namespace SourceGit.Views
                 }
             }
 
-            var fill = this.FindResource("Brush.ToolBar") as IBrush;
+            // [fork:colored-tabs] Use tab color for selected tab if set
+            IBrush fill = this.FindResource("Brush.ToolBar") as IBrush;
+            var selectedPage = LauncherTabsList.Items[selectedIdx] as ViewModels.LauncherPage;
+            var selectedColorBrush = GetTabColorBrush(selectedPage?.Node);
+            if (selectedColorBrush != null)
+                fill = new SolidColorBrush(selectedColorBrush.Color, 0.35);
+
             var stroke = new Pen(this.FindResource("Brush.Border0") as IBrush);
             context.DrawGeometry(fill, stroke, geo);
         }
@@ -222,6 +252,12 @@ namespace SourceGit.Views
                     (DataContext as ViewModels.Launcher)?.CloseTab(page);
                     e.Handled = true;
                 }
+                // [fork:colored-tabs] Right-click on a tab opens its context menu
+                else if (point.Properties.IsRightButtonPressed)
+                {
+                    ShowTabContextMenu(border);
+                    e.Handled = true;
+                }
                 else if (point.Properties.IsLeftButtonPressed)
                 {
                     _pressedTabEvent = e;
@@ -233,6 +269,81 @@ namespace SourceGit.Views
                     _startDragTab = false;
                 }
             }
+        }
+
+        // [fork:colored-tabs] Tab right-click context menu (refresh/copy/edit/bookmark/tab color/close)
+        private void ShowTabContextMenu(Border border)
+        {
+            if (border.DataContext is not ViewModels.LauncherPage page ||
+                DataContext is not ViewModels.Launcher vm)
+                return;
+
+            var menu = new ContextMenu();
+
+            if (page.Data is ViewModels.Repository repo)
+            {
+                var refresh = new MenuItem();
+                refresh.Header = App.Text("PageTabBar.Tab.Refresh");
+                refresh.Icon = this.CreateMenuIcon("Icons.Loading");
+                refresh.Click += (_, ev) =>
+                {
+                    repo.RefreshAll();
+                    ev.Handled = true;
+                };
+                menu.Items.Add(refresh);
+
+                var copyPath = new MenuItem();
+                copyPath.Header = App.Text("PageTabBar.Tab.CopyPath");
+                copyPath.Icon = this.CreateMenuIcon("Icons.Copy");
+                copyPath.Click += async (_, ev) =>
+                {
+                    var dir = new DirectoryInfo(repo.FullPath);
+                    await this.CopyTextAsync(dir.FullName);
+                    ev.Handled = true;
+                };
+                menu.Items.Add(copyPath);
+                menu.Items.Add(new MenuItem() { Header = "-" });
+
+                var edit = new MenuItem();
+                edit.Header = App.Text("PageTabBar.Tab.Edit");
+                edit.Icon = this.CreateMenuIcon("Icons.Edit");
+                edit.Click += (_, ev) =>
+                {
+                    page.Node.Edit();
+                    ev.Handled = true;
+                };
+                menu.Items.Add(edit);
+                menu.Items.Add(new MenuItem() { Header = "-" });
+            }
+
+            var close = new MenuItem();
+            close.Header = App.Text("PageTabBar.Tab.Close");
+            close.Click += (_, ev) =>
+            {
+                vm.CloseTab(page);
+                ev.Handled = true;
+            };
+            menu.Items.Add(close);
+
+            var closeOthers = new MenuItem();
+            closeOthers.Header = App.Text("PageTabBar.Tab.CloseOther");
+            closeOthers.Click += (_, ev) =>
+            {
+                vm.CloseOtherTabs();
+                ev.Handled = true;
+            };
+            menu.Items.Add(closeOthers);
+
+            var closeRight = new MenuItem();
+            closeRight.Header = App.Text("PageTabBar.Tab.CloseRight");
+            closeRight.Click += (_, ev) =>
+            {
+                vm.CloseRightTabs();
+                ev.Handled = true;
+            };
+            menu.Items.Add(closeRight);
+
+            menu.Open(border);
         }
 
         private void OnPointerReleasedTab(object _1, PointerReleasedEventArgs _2)
@@ -415,6 +526,103 @@ namespace SourceGit.Views
         private bool _isScrollButtonVisible = false;
         private readonly Vector _scrollStep = new(64, 0);
         private PointerPressedEventArgs _pressedTabEvent = null;
+
+        // [fork:colored-tabs] Click handler for the tab options button (chevron icon on each tab)
+        private void OnTabMenuButton(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button { DataContext: ViewModels.LauncherPage page } btn &&
+                DataContext is ViewModels.Launcher vm)
+            {
+                var menu = new ContextMenu();
+
+                if (page.Data is ViewModels.Repository repo)
+                {
+                    var refresh = new MenuItem();
+                    refresh.Header = App.Text("PageTabBar.Tab.Refresh");
+                    refresh.Icon = this.CreateMenuIcon("Icons.Loading");
+                    refresh.Click += (_, ev) =>
+                    {
+                        repo.RefreshAll();
+                        ev.Handled = true;
+                    };
+                    menu.Items.Add(refresh);
+
+                    var copyPath = new MenuItem();
+                    copyPath.Header = App.Text("PageTabBar.Tab.CopyPath");
+                    copyPath.Icon = this.CreateMenuIcon("Icons.Copy");
+                    copyPath.Click += async (_, ev) =>
+                    {
+                        var dir = new DirectoryInfo(repo.FullPath);
+                        await this.CopyTextAsync(dir.FullName);
+                        ev.Handled = true;
+                    };
+                    menu.Items.Add(copyPath);
+                    menu.Items.Add(new MenuItem() { Header = "-" });
+
+                    var edit = new MenuItem();
+                    edit.Header = App.Text("PageTabBar.Tab.Edit");
+                    edit.Icon = this.CreateMenuIcon("Icons.Edit");
+                    edit.Click += (_, ev) =>
+                    {
+                        page.Node.Edit();
+                        ev.Handled = true;
+                    };
+                    menu.Items.Add(edit);
+                    menu.Items.Add(new MenuItem() { Header = "-" });
+                }
+
+                var close = new MenuItem();
+                close.Header = App.Text("PageTabBar.Tab.Close");
+                close.Click += (_, ev) =>
+                {
+                    vm.CloseTab(page);
+                    ev.Handled = true;
+                };
+                menu.Items.Add(close);
+
+                var closeOthers = new MenuItem();
+                closeOthers.Header = App.Text("PageTabBar.Tab.CloseOther");
+                closeOthers.Click += (_, ev) =>
+                {
+                    vm.CloseOtherTabs();
+                    ev.Handled = true;
+                };
+                menu.Items.Add(closeOthers);
+
+                var closeRight = new MenuItem();
+                closeRight.Header = App.Text("PageTabBar.Tab.CloseRight");
+                closeRight.Click += (_, ev) =>
+                {
+                    vm.CloseRightTabs();
+                    ev.Handled = true;
+                };
+                menu.Items.Add(closeRight);
+
+                menu.Open(btn);
+            }
+
+            e.Handled = true;
+        }
+
+        // [fork:colored-tabs] Resolves a tab's color brush (preset bookmark slot or custom uint)
+        private static ISolidColorBrush GetTabColorBrush(ViewModels.RepositoryNode node)
+        {
+            if (node == null)
+                return null;
+
+            if (node.TabColor > 0)
+            {
+                if (Models.Bookmarks.Get(node.TabColor) is ISolidColorBrush preset)
+                    return preset;
+            }
+            else if (node.TabColor == -1 && node.TabColorCustom != 0)
+            {
+                return new SolidColorBrush(Color.FromUInt32(node.TabColorCustom));
+            }
+
+            return null;
+        }
+
         private bool _startDragTab = false;
         private readonly DataFormat<string> _dndMainTabFormat = DataFormat.CreateStringApplicationFormat("sourcegit-dnd-main-tab");
     }

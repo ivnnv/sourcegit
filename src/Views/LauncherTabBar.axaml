@@ -82,11 +82,17 @@
                 </ToolTip.Tip>
 
                 <Grid ColumnDefinitions="Auto,*,Auto">
-                  <v:Bookmark Grid.Column="0"
-                              Width="12" Height="12"
-                              Margin="12,0"
-                              Value="{Binding Node.Bookmark, Mode=OneWay}"
-                              IsVisible="{Binding Node.IsRepository}"/>
+                  <!-- [fork:colored-tabs] Bookmark icon doubles as the tab options button -->
+                  <Button Grid.Column="0"
+                          Classes="icon_button"
+                          Width="20" Height="20" Margin="8,0,0,0"
+                          Click="OnTabMenuButton"
+                          IsVisible="{Binding Node.IsRepository}"
+                          ToolTip.Tip="{DynamicResource Text.PageTabBar.Tab.Options}">
+                    <v:Bookmark Width="12" Height="12"
+                                Value="{Binding Node.Bookmark, Mode=OneWay}"
+                                Custom="{Binding Node.BookmarkCustom, Mode=OneWay}"/>
+                  </Button>
                   <Path Grid.Column="0"
                         Width="12" Height="12" Margin="12,0"
                         Fill="{DynamicResource Brush.FG1}"
@@ -124,7 +130,7 @@
 
                   <Button Grid.Column="2"
                           Classes="icon_button"
-                          Width="14" Height="12" Margin="12,0"
+                          Width="14" Height="12" Margin="0,0,12,0"
                           Click="OnCloseTab">
                     <ToolTip.Tip>
                       <StackPanel Orientation="Horizontal" VerticalAlignment="Center">

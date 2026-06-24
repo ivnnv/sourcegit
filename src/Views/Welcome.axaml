@@ -136,6 +136,7 @@
                           Width="14" Height="14"
                           HorizontalAlignment="Center"
                           Value="{Binding Bookmark, Mode=OneWay}"
+                          Custom="{Binding BookmarkCustom, Mode=OneWay}"
                           IsVisible="{Binding IsRepository}"/>
 
               <ToggleButton Grid.Column="1"

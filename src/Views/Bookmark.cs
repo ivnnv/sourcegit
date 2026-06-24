@@ -19,6 +19,19 @@ namespace SourceGit.Views
             set => SetAndRaise(ValueProperty, ref _value, value);
         }
 
+        // [fork:colored-tabs] ARGB used when Value is the custom sentinel (-1)
+        public static readonly DirectProperty<Bookmark, uint> CustomProperty =
+            AvaloniaProperty.RegisterDirect<Bookmark, uint>(
+                nameof(Custom),
+                static o => o.Custom,
+                static (o, v) => o.Custom = v);
+
+        public uint Custom
+        {
+            get => _custom;
+            set => SetAndRaise(CustomProperty, ref _custom, value);
+        }
+
         public Bookmark()
         {
             IsHitTestVisible = false;
@@ -29,7 +42,7 @@ namespace SourceGit.Views
             if (_icon == null)
                 LoadIcon();
 
-            var brush = Models.Bookmarks.Get(_value) ?? (this.FindResource("Brush.FG1") as IBrush);
+            var brush = Models.Bookmarks.Get(_value, _custom) ?? (this.FindResource("Brush.FG1") as IBrush);
             var startX = (Bounds.Width - 12.0) * 0.5;
             var startY = (Bounds.Height - 12.0) * 0.5;
             using (context.PushTransform(Matrix.CreateTranslation(startX, startY)))
@@ -40,7 +53,7 @@ namespace SourceGit.Views
         {
             base.OnPropertyChanged(change);
 
-            if (change.Property == ValueProperty)
+            if (change.Property == ValueProperty || change.Property == CustomProperty)
                 InvalidateVisual();
             else if (change.Property.Name == nameof(ActualThemeVariant) && change.NewValue != null)
                 InvalidateVisual();
@@ -61,6 +74,7 @@ namespace SourceGit.Views
         }
 
         private int _value = 0;
+        private uint _custom = 0;
         private Geometry _icon = null;
     }
 }

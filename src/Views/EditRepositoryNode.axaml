@@ -25,7 +25,7 @@
                  IsVisible="{Binding IsRepository}"/>
     </StackPanel>
 
-    <Grid Margin="8,16,0,0" RowDefinitions="32,32,32" ColumnDefinitions="120,*">
+    <Grid Margin="8,16,0,0" RowDefinitions="32,32,32,32" ColumnDefinitions="120,*">
       <TextBlock Grid.Row="0" Grid.Column="0"
                  HorizontalAlignment="Right" VerticalAlignment="Center"
                  Margin="0,0,8,0"
@@ -58,9 +58,27 @@
                  HorizontalAlignment="Right" VerticalAlignment="Center"
                  Margin="0,0,8,0"
                  Text="{DynamicResource Text.EditRepositoryNode.Bookmark}"/>
-      <v:BookmarkSelector Grid.Row="2" Grid.Column="1"
+      <!-- [fork:colored-tabs] trailing swatch selects the custom sentinel and opens the color picker -->
+      <v:BookmarkSelector x:Name="BookmarkPicker"
+                          Grid.Row="2" Grid.Column="1"
                           HorizontalAlignment="Left" VerticalAlignment="Center"
-                          Bookmark="{Binding Bookmark, Mode=TwoWay}"/>
+                          Bookmark="{Binding Bookmark, Mode=TwoWay}"
+                          Custom="{Binding BookmarkCustom, Mode=TwoWay}"
+                          CustomRequested="OnPickBookmarkCustomColor"/>
+
+      <!-- [fork:colored-tabs] Tab color mirrors the bookmark picker -->
+      <TextBlock Grid.Row="3" Grid.Column="0"
+                 HorizontalAlignment="Right" VerticalAlignment="Center"
+                 Margin="0,0,8,0"
+                 IsVisible="{Binding IsRepository}"
+                 Text="{DynamicResource Text.PageTabBar.Tab.Color}"/>
+      <v:BookmarkSelector x:Name="TabColorPicker"
+                          Grid.Row="3" Grid.Column="1"
+                          HorizontalAlignment="Left" VerticalAlignment="Center"
+                          IsVisible="{Binding IsRepository}"
+                          Bookmark="{Binding TabColor, Mode=TwoWay}"
+                          Custom="{Binding TabColorCustom, Mode=TwoWay}"
+                          CustomRequested="OnPickTabCustomColor"/>
     </Grid>
   </StackPanel>
 </UserControl>
