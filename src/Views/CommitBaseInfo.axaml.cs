@@ -119,6 +119,15 @@ namespace SourceGit.Views
             base.OnUnloaded(e);
         }
 
+        // [fork:commit-refs-copy] Copy ref name to clipboard
+        private async void OnCopyRefName(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button { DataContext: Models.Decorator decorator })
+                await this.CopyTextAsync(decorator.Name);
+
+            e.Handled = true;
+        }
+
         private void OnDateTimeContextMenuRequested(object sender, ContextRequestedEventArgs e)
         {
             if (sender is DateTimePresenter presenter)

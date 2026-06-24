@@ -148,6 +148,16 @@ namespace SourceGit.Views
             set => SetValue(ShowTagsProperty, value);
         }
 
+        // [fork:commit-refs-copy] When set, render exactly this one ref instead of the commit's full decorator list (per-ref pill + copy button in CommitBaseInfo)
+        public static readonly StyledProperty<Models.Decorator> DecoratorProperty =
+            AvaloniaProperty.Register<CommitRefsPresenter, Models.Decorator>(nameof(Decorator));
+
+        public Models.Decorator Decorator
+        {
+            get => GetValue(DecoratorProperty);
+            set => SetValue(DecoratorProperty, value);
+        }
+
         public Models.Decorator DecoratorAt(Point point)
         {
             var x = 0.0;
@@ -242,7 +252,8 @@ namespace SourceGit.Views
                 change.Property == UseGraphColorProperty ||
                 change.Property == UseCompactBranchNamesProperty ||
                 change.Property == BackgroundProperty ||
-                change.Property == ShowTagsProperty)
+                change.Property == ShowTagsProperty ||
+                change.Property == DecoratorProperty)
                 InvalidateMeasure();
         }
 
@@ -256,10 +267,22 @@ namespace SourceGit.Views
         {
             _items.Clear();
 
-            if (DataContext is not Models.Commit commit)
-                return new Size(0, 0);
+            // [fork:commit-refs-copy] Single-decorator mode bypasses the Commit DataContext so one pill can render per ref.
+            var singleDecorator = Decorator;
+            IReadOnlyList<Models.Decorator> refs;
+            Models.Commit commit = null;
+            if (singleDecorator != null)
+            {
+                refs = new[] { singleDecorator };
+            }
+            else
+            {
+                commit = DataContext as Models.Commit;
+                if (commit == null)
+                    return new Size(0, 0);
+                refs = commit.Decorators;
+            }
 
-            var refs = commit.Decorators;
             var count = refs.Count;
             if (count == 0)
             {
@@ -272,7 +295,7 @@ namespace SourceGit.Views
             var typefaceHead = new Typeface(FontFamily, FontStyle.Normal, FontWeight.Bold);
             var typefaceRemote = new Typeface(FontFamily, FontStyle.Italic, FontWeight.Bold);
             var fg = Foreground;
-            var normalBG = UseGraphColor ? Models.CommitGraph.Pens[commit.Color].Brush : Brushes.Gray;
+            var normalBG = UseGraphColor && commit != null ? Models.CommitGraph.Pens[commit.Color].Brush : Brushes.Gray;
             var labelSize = FontSize;
             var requiredHeight = 16.0;
             var x = 0.0;
