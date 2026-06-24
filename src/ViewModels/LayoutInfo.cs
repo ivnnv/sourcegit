@@ -1,4 +1,6 @@
-﻿using Avalonia.Controls;
+﻿using System.Collections.Generic;
+
+using Avalonia.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace SourceGit.ViewModels
@@ -65,10 +67,19 @@ namespace SourceGit.ViewModels
             set => SetProperty(ref _commitDetailFilesLeftWidth, value);
         }
 
+        // [fork:sidebar-section-reorder] Persisted order of the three sidebar sections (Histories/Working Copy/Stashes)
+        public List<int> SidebarViewOrder
+        {
+            get => _sidebarViewOrder;
+            set => SetProperty(ref _sidebarViewOrder, value);
+        }
+
         private GridLength _repositorySidebarWidth = new GridLength(250, GridUnitType.Pixel);
         private GridLength _workingCopyLeftWidth = new GridLength(300, GridUnitType.Pixel);
         private GridLength _stashesLeftWidth = new GridLength(300, GridUnitType.Pixel);
         private GridLength _commitDetailChangesLeftWidth = new GridLength(256, GridUnitType.Pixel);
         private GridLength _commitDetailFilesLeftWidth = new GridLength(256, GridUnitType.Pixel);
+        // [fork:sidebar-section-reorder] Default order: Histories=0, WorkingCopy=1, Stashes=2
+        private List<int> _sidebarViewOrder = new List<int> { 0, 1, 2 };
     }
 }
