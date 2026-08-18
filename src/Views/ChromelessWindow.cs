@@ -109,14 +109,12 @@ namespace SourceGit.Views
             {
                 if (e.Key == Key.OemPlus)
                 {
-                    var zoom = Math.Min(ViewModels.Preferences.Instance.Zoom + 0.05, 2.5);
-                    ViewModels.Preferences.Instance.Zoom = zoom;
+                    ViewModels.Preferences.Instance.Zoom += ViewModels.Preferences.ZoomStep;
                     e.Handled = true;
                 }
                 else if (e.Key == Key.OemMinus)
                 {
-                    var zoom = Math.Max(ViewModels.Preferences.Instance.Zoom - 0.05, 1);
-                    ViewModels.Preferences.Instance.Zoom = zoom;
+                    ViewModels.Preferences.Instance.Zoom -= ViewModels.Preferences.ZoomStep;
                     e.Handled = true;
                 }
                 else if (e.Key == Key.W)
