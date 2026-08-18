@@ -68,6 +68,8 @@ namespace SourceGit
     [JsonSerializable(typeof(Models.Version))]
     [JsonSerializable(typeof(Models.RepositorySettings))]
     [JsonSerializable(typeof(Models.RepositoryUIStates))]
+    // [fork:sidebar-section-reorder] List<int> serializer for SidebarViewOrder
+    [JsonSerializable(typeof(List<int>))]
     [JsonSerializable(typeof(List<Models.ConventionalCommitType>))]
     [JsonSerializable(typeof(List<Models.LFSLock>))]
     [JsonSerializable(typeof(List<Models.VisualStudioInstance>))]

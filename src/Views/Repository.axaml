@@ -53,7 +53,8 @@
       <Grid Grid.Row="1" Margin="0,0,0,8" RowDefinitions="Auto,Auto,*" IsVisible="{Binding !IsSearchingCommits}">
         <!-- Page Switcher for Right Panel -->
         <Border Grid.Row="0" Margin="8,0,4,0" BorderThickness="1" BorderBrush="{DynamicResource Brush.Border2}" CornerRadius="6">
-          <ListBox Background="Transparent" Padding="4" SelectedIndex="{Binding SelectedViewIndex, Mode=TwoWay}" SelectionMode="AlwaysSelected">
+          <!-- [fork:sidebar-section-reorder] x:Name + custom SelectionChanged so code-behind can reorder items by drag-drop -->
+          <ListBox x:Name="ViewSwitcher" Background="Transparent" Padding="4" SelectionMode="AlwaysSelected" SelectionChanged="OnViewSwitcherSelectionChanged">
             <ListBox.Styles>
               <Style Selector="Path.icon">
                 <Setter Property="Width" Value="12"/>
@@ -95,12 +96,22 @@
               </ItemsPanelTemplate>
             </ListBox.ItemsPanel>
 
-            <ListBoxItem>
-              <Grid ColumnDefinitions="4,Auto,*,Auto">
-                <Rectangle Grid.Column="0" Classes="indicator" Width="4" Height="20" VerticalAlignment="Center"/>
-                <Path Grid.Column="1" Classes="icon" Data="{StaticResource Icons.Histories}"/>
-                <TextBlock Grid.Column="2" Classes="header" Text="{DynamicResource Text.Histories}"/>
-                <Button Grid.Column="3"
+            <!-- [fork:sidebar-section-reorder] Tag identifies the section across reorders. Grip handle in column 0. -->
+            <ListBoxItem Tag="0"
+                         DragDrop.AllowDrop="True"
+                         DragDrop.Drop="OnViewSwitcherItemDrop">
+              <Grid ColumnDefinitions="Auto,4,Auto,*,Auto">
+                <Border Grid.Column="0"
+                        Width="10" Margin="3,0,0,0" Background="Transparent" Cursor="SizeAll"
+                        PointerPressed="OnViewSwitcherItemPointerPressed"
+                        PointerMoved="OnViewSwitcherItemPointerMoved"
+                        PointerReleased="OnViewSwitcherItemPointerReleased">
+                  <Path Width="8" Height="12" Stretch="Uniform" Data="{StaticResource Icons.GripVertical}" Fill="{DynamicResource Brush.FG2}" Opacity="0.5"/>
+                </Border>
+                <Rectangle Grid.Column="1" Classes="indicator" Width="4" Height="20" VerticalAlignment="Center"/>
+                <Path Grid.Column="2" Classes="icon" Data="{StaticResource Icons.Histories}"/>
+                <TextBlock Grid.Column="3" Classes="header" Text="{DynamicResource Text.Histories}"/>
+                <Button Grid.Column="4"
                         Classes="icon_button"
                         Width="26" Height="26"
                         Click="OnOpenAdvancedHistoriesOption"
@@ -110,12 +121,23 @@
               </Grid>
             </ListBoxItem>
 
-            <ListBoxItem IsVisible="{Binding !IsBare}">
-              <Grid ColumnDefinitions="4,Auto,*,Auto,Auto,Auto">
-                <Rectangle Grid.Column="0" Classes="indicator" Width="4" Height="20" VerticalAlignment="Center"/>
-                <Path Grid.Column="1" Classes="icon" Data="{StaticResource Icons.Changes}"/>
-                <TextBlock Grid.Column="2" Classes="header" Text="{DynamicResource Text.WorkingCopy}"/>
-                <Border Grid.Column="3"
+            <!-- [fork:sidebar-section-reorder] Tag="1" Working Copy -->
+            <ListBoxItem Tag="1"
+                         IsVisible="{Binding !IsBare}"
+                         DragDrop.AllowDrop="True"
+                         DragDrop.Drop="OnViewSwitcherItemDrop">
+              <Grid ColumnDefinitions="Auto,4,Auto,*,Auto,Auto,Auto">
+                <Border Grid.Column="0"
+                        Width="10" Margin="3,0,0,0" Background="Transparent" Cursor="SizeAll"
+                        PointerPressed="OnViewSwitcherItemPointerPressed"
+                        PointerMoved="OnViewSwitcherItemPointerMoved"
+                        PointerReleased="OnViewSwitcherItemPointerReleased">
+                  <Path Width="8" Height="12" Stretch="Uniform" Data="{StaticResource Icons.GripVertical}" Fill="{DynamicResource Brush.FG2}" Opacity="0.5"/>
+                </Border>
+                <Rectangle Grid.Column="1" Classes="indicator" Width="4" Height="20" VerticalAlignment="Center"/>
+                <Path Grid.Column="2" Classes="icon" Data="{StaticResource Icons.Changes}"/>
+                <TextBlock Grid.Column="3" Classes="header" Text="{DynamicResource Text.WorkingCopy}"/>
+                <Border Grid.Column="4"
                         Height="18"
                         Margin="6,0" Padding="9,0"
                         CornerRadius="9"
@@ -127,13 +149,13 @@
                              FontFamily="{DynamicResource Fonts.Monospace}"
                              FontSize="10"/>
                 </Border>
-                <Path Grid.Column="4"
+                <Path Grid.Column="5"
                       Width="12" Height="12"
                       Margin="0,0,6,0"
                       Data="{StaticResource Icons.Info}"
                       Fill="DarkOrange"
                       IsVisible="{Binding InProgressContext, Converter={x:Static ObjectConverters.IsNotNull}}"/>
-                <Button Grid.Column="5"
+                <Button Grid.Column="6"
                         Classes="icon_button"
                         Width="26" Height="26"
                         Command="{Binding DiscardAllChanges}"
@@ -143,12 +165,23 @@
               </Grid>
             </ListBoxItem>
 
-            <ListBoxItem IsVisible="{Binding !IsBare}">
-              <Grid ColumnDefinitions="4,Auto,*,Auto,Auto">
-                <Rectangle Grid.Column="0" Classes="indicator" Width="4" Height="20" VerticalAlignment="Center"/>
-                <Path Grid.Column="1" Classes="icon" Data="{StaticResource Icons.Stashes}"/>
-                <TextBlock Grid.Column="2" Classes="header" Text="{DynamicResource Text.Stashes}"/>
-                <Border Grid.Column="3"
+            <!-- [fork:sidebar-section-reorder] Tag="2" Stashes -->
+            <ListBoxItem Tag="2"
+                         IsVisible="{Binding !IsBare}"
+                         DragDrop.AllowDrop="True"
+                         DragDrop.Drop="OnViewSwitcherItemDrop">
+              <Grid ColumnDefinitions="Auto,4,Auto,*,Auto,Auto">
+                <Border Grid.Column="0"
+                        Width="10" Margin="3,0,0,0" Background="Transparent" Cursor="SizeAll"
+                        PointerPressed="OnViewSwitcherItemPointerPressed"
+                        PointerMoved="OnViewSwitcherItemPointerMoved"
+                        PointerReleased="OnViewSwitcherItemPointerReleased">
+                  <Path Width="8" Height="12" Stretch="Uniform" Data="{StaticResource Icons.GripVertical}" Fill="{DynamicResource Brush.FG2}" Opacity="0.5"/>
+                </Border>
+                <Rectangle Grid.Column="1" Classes="indicator" Width="4" Height="20" VerticalAlignment="Center"/>
+                <Path Grid.Column="2" Classes="icon" Data="{StaticResource Icons.Stashes}"/>
+                <TextBlock Grid.Column="3" Classes="header" Text="{DynamicResource Text.Stashes}"/>
+                <Border Grid.Column="4"
                         Height="18"
                         Margin="6,0" Padding="9,0"
                         CornerRadius="9"
@@ -160,7 +193,7 @@
                              FontFamily="{DynamicResource Fonts.Monospace}"
                              FontSize="10"/>
                 </Border>
-                <Button Grid.Column="4"
+                <Button Grid.Column="5"
                         Classes="icon_button"
                         Width="26" Height="26"
                         Command="{Binding ClearStashes}"
