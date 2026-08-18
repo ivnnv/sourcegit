@@ -1,11 +1,14 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Shapes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 
 namespace SourceGit.Views
 {
@@ -117,6 +120,32 @@ namespace SourceGit.Views
             _iconResetTimer.IsEnabled = false;
 
             base.OnUnloaded(e);
+        }
+
+        // [fork:commit-refs-copy] Copy ref name to clipboard
+        private async void OnCopyRefName(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button { DataContext: Models.Decorator decorator } btn)
+            {
+                await this.CopyTextAsync(decorator.Name);
+
+                // [fork:commit-refs-copy] Briefly swap the copy glyph for a green check, matching the SHA copy button
+                var paths = btn.GetVisualDescendants().OfType<Path>().ToList();
+                var copyIcon = paths.FirstOrDefault(p => Equals(p.Tag, "copy"));
+                var checkIcon = paths.FirstOrDefault(p => Equals(p.Tag, "check"));
+                if (copyIcon != null && checkIcon != null)
+                {
+                    copyIcon.IsVisible = false;
+                    checkIcon.IsVisible = true;
+                    DispatcherTimer.RunOnce(() =>
+                    {
+                        copyIcon.IsVisible = true;
+                        checkIcon.IsVisible = false;
+                    }, TimeSpan.FromSeconds(2));
+                }
+            }
+
+            e.Handled = true;
         }
 
         private void OnDateTimeContextMenuRequested(object sender, ContextRequestedEventArgs e)
