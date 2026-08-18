@@ -89,13 +89,6 @@ namespace SourceGit.Models
             set;
         } = [];
 
-        // [fork:explicit-branches] Temporarily reveal every local branch without touching VisibleLocalBranches
-        public bool ShowAllLocalBranches
-        {
-            get;
-            set;
-        } = false;
-
         public bool ShowTagsAsTree
         {
             get;

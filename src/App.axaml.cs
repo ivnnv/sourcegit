@@ -484,10 +484,10 @@ namespace SourceGit
                         arg = Path.GetFullPath(arg);
                 }
 
-                // [fork:explicit-branches] Forward "--branch <name>" as the tab-separated second field
+                // [fork:explicit-branches] Forward "--branch <name>" using the versioned payload form
                 var forwardBranch = ParseBranchArg(desktop.Args);
                 if (!string.IsNullOrEmpty(forwardBranch))
-                    arg = $"{arg}\t{forwardBranch}";
+                    arg = $"v1\t{arg}\t{forwardBranch}";
 
                 _ipcChannel.SendToFirstInstance(arg);
                 Environment.Exit(0);
@@ -554,23 +554,38 @@ namespace SourceGit
 
             _ipcChannel.MessageReceived += msg =>
             {
-                // [fork:explicit-branches] The protocol used to be a bare repo path. It now also accepts
-                // "<repo-path>\t<branch>", which additionally pins that branch into the sidebar allowlist,
-                // so an agent can surface a branch it just created instead of it being hidden as noise.
+                // [fork:explicit-branches] The protocol was a bare repo path and still accepts one unchanged.
+                // The new form is "v1\t<repo-path>\t<branch>", which also pins the branch into the sidebar
+                // allowlist so an agent can surface a branch it just created.
+                //
+                // The version prefix exists because a POSIX path may legally contain a tab, so a bare
+                // "<path>\t<branch>" would be ambiguous. Splitting on the LAST tab is then safe: git
+                // forbids control characters in ref names, so a branch name never contains one.
                 var repo = msg;
                 var branch = string.Empty;
-                var tab = msg.IndexOf('\t');
-                if (tab > 0)
+                if (msg.StartsWith("v1\t", StringComparison.Ordinal))
                 {
-                    repo = msg.Substring(0, tab);
-                    branch = msg.Substring(tab + 1).Trim();
+                    var payload = msg.Substring(3);
+                    var tab = payload.LastIndexOf('\t');
+                    if (tab > 0)
+                    {
+                        repo = payload.Substring(0, tab);
+                        branch = payload.Substring(tab + 1).Trim();
+                    }
+                    else
+                    {
+                        repo = payload;
+                    }
                 }
 
                 Dispatcher.UIThread.Invoke(() =>
                 {
-                    _launcher.TryOpenRepositoryFromPath(repo);
+                    // Only pin when the repo actually opened, and only on the page that opened for it.
+                    // Otherwise a bad path would allowlist the branch in whichever tab happened to be active.
+                    var opened = _launcher.TryOpenRepositoryFromPath(repo);
 
-                    if (!string.IsNullOrEmpty(branch) &&
+                    if (opened &&
+                        !string.IsNullOrEmpty(branch) &&
                         _launcher.ActivePage?.Data is ViewModels.Repository active)
                         active.MarkLocalBranchVisible(branch);
 

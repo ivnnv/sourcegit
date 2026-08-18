@@ -280,7 +280,7 @@ namespace SourceGit.ViewModels
             get
             {
                 var hidden = HiddenLocalBranchCount;
-                if (hidden == 0 || _uiStates.ShowAllLocalBranches)
+                if (hidden == 0 || _showAllLocalBranches)
                     return $"({_localBranchesCount})";
 
                 return $"({_localBranchesCount - hidden}/{_localBranchesCount})";
@@ -451,15 +451,16 @@ namespace SourceGit.ViewModels
             }
         }
 
-        // [fork:explicit-branches] Reveals every local branch for this session without editing the allowlist
+        // [fork:explicit-branches] Reveals every local branch. Deliberately NOT persisted: it is an
+        // escape hatch for the current session, so a tab reopened later starts filtered again.
         public bool ShowAllLocalBranches
         {
-            get => _uiStates.ShowAllLocalBranches;
+            get => _showAllLocalBranches;
             set
             {
-                if (_uiStates.ShowAllLocalBranches != value)
+                if (_showAllLocalBranches != value)
                 {
-                    _uiStates.ShowAllLocalBranches = value;
+                    _showAllLocalBranches = value;
                     OnPropertyChanged();
 
                     var builder = BuildBranchTree(_branches, _remotes);
@@ -499,6 +500,25 @@ namespace SourceGit.ViewModels
                 return true;
 
             return _uiStates.VisibleLocalBranches.Contains(branch.FullName);
+        }
+
+        // [fork:explicit-branches] Drops allowlist entries whose ref is gone. Done centrally on refresh
+        // rather than in each delete path, so a branch deleted outside SourceGit is covered too.
+        // Without this a later branch reusing the name would silently inherit visibility.
+        private void PruneVisibleLocalBranches(List<Models.Branch> branches)
+        {
+            var allowed = _uiStates.VisibleLocalBranches;
+            if (allowed.Count == 0)
+                return;
+
+            var live = new HashSet<string>();
+            foreach (var b in branches)
+            {
+                if (b.IsLocal)
+                    live.Add(b.FullName);
+            }
+
+            allowed.RemoveAll(name => !live.Contains(name));
         }
 
         // [fork:explicit-branches] Called when the user creates or checks out a branch from inside SourceGit,
@@ -1024,6 +1044,11 @@ namespace SourceGit.ViewModels
             var newFullName = $"refs/heads/{newName}";
             _uiStates.RenameBranchFilter(b.FullName, newFullName);
 
+            // [fork:explicit-branches] Carry allowlist membership across the rename, else an opened branch vanishes
+            if (_uiStates.VisibleLocalBranches.Remove(b.FullName) &&
+                !_uiStates.VisibleLocalBranches.Contains(newFullName))
+                _uiStates.VisibleLocalBranches.Add(newFullName);
+
             var renamed = new Models.Branch
             {
                 Name = newName,
@@ -1321,6 +1346,10 @@ namespace SourceGit.ViewModels
                     if (token.IsCancellationRequested)
                         return;
 
+                    // [fork:explicit-branches] Prune on the UI thread: HiddenLocalBranchCount reads this
+                    // same list, and RemoveAll from the refresh thread could throw under it.
+                    PruneVisibleLocalBranches(branches);
+
                     Remotes = remotes;
                     Branches = branches;
                     CurrentBranch = branches.Find(x => x.IsCurrent);
@@ -1561,6 +1590,9 @@ namespace SourceGit.ViewModels
                 var worktree = _worktrees.Find(x => x.IsAttachedTo(branch));
                 if (worktree != null)
                 {
+                    // [fork:explicit-branches] Opening the worktree counts as opening the branch. Without
+                    // this the early return skips both refresh choke points and the branch stays hidden.
+                    MarkLocalBranchVisible(branch.FullName);
                     OpenWorktree(worktree);
                     return;
                 }
@@ -1849,7 +1881,7 @@ namespace SourceGit.ViewModels
             {
                 // [fork:explicit-branches] Hide local branches the user never opened. The search box below
                 // deliberately bypasses this, so a hidden branch is always reachable by typing its name.
-                if (!_uiStates.ShowAllLocalBranches)
+                if (!_showAllLocalBranches)
                 {
                     var allowed = new List<Models.Branch>();
                     foreach (var b in branches)
@@ -2116,6 +2148,8 @@ namespace SourceGit.ViewModels
         private int _selectedViewIndex = 0;
 
         private int _localBranchesCount = 0;
+        // [fork:explicit-branches] Session-only reveal state; the allowlist itself lives in _uiStates
+        private bool _showAllLocalBranches = false;
         private int _localChangesCount = 0;
         private int _stashesCount = 0;
 
