@@ -267,7 +267,24 @@ namespace SourceGit.ViewModels
         public int LocalBranchesCount
         {
             get => _localBranchesCount;
-            private set => SetProperty(ref _localBranchesCount, value);
+            private set
+            {
+                if (SetProperty(ref _localBranchesCount, value))
+                    OnPropertyChanged(nameof(LocalBranchesCountLabel));
+            }
+        }
+
+        // [fork:explicit-branches] "(30)" normally, "(4/30)" while the allowlist is hiding branches
+        public string LocalBranchesCountLabel
+        {
+            get
+            {
+                var hidden = HiddenLocalBranchCount;
+                if (hidden == 0 || _uiStates.ShowAllLocalBranches)
+                    return $"({_localBranchesCount})";
+
+                return $"({_localBranchesCount - hidden}/{_localBranchesCount})";
+            }
         }
 
         public bool IncludeUntracked
@@ -449,6 +466,7 @@ namespace SourceGit.ViewModels
                     LocalBranchTrees = builder.Locals;
                     RemoteBranchTrees = builder.Remotes;
                     OnPropertyChanged(nameof(HiddenLocalBranchCount));
+                    OnPropertyChanged(nameof(LocalBranchesCountLabel));
                 }
             }
         }
@@ -502,6 +520,7 @@ namespace SourceGit.ViewModels
             LocalBranchTrees = builder.Locals;
             RemoteBranchTrees = builder.Remotes;
             OnPropertyChanged(nameof(HiddenLocalBranchCount));
+            OnPropertyChanged(nameof(LocalBranchesCountLabel));
         }
 
         // [fork:custom-branch-sort] Persists current visual order into UIState; called after drag-drop completes
