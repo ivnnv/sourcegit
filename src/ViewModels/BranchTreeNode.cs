@@ -64,10 +64,13 @@ namespace SourceGit.ViewModels
             public List<BranchTreeNode> Remotes { get; } = [];
             public List<string> InvalidExpandedNodes { get; } = [];
 
-            public Builder(Models.BranchSortMode localSortMode, Models.BranchSortMode remoteSortMode)
+            // [fork:custom-branch-sort] Optional customLocal/RemoteOrder params feed SortNodesByCustomOrder
+            public Builder(Models.BranchSortMode localSortMode, Models.BranchSortMode remoteSortMode, List<string> customLocalOrder = null, List<string> customRemoteOrder = null)
             {
                 _localSortMode = localSortMode;
                 _remoteSortMode = remoteSortMode;
+                _customLocalOrder = customLocalOrder;
+                _customRemoteOrder = customRemoteOrder;
             }
 
             public void SetExpandedNodes(List<string> expanded)
@@ -122,15 +125,32 @@ namespace SourceGit.ViewModels
 
                 folders.Clear();
 
-                if (_localSortMode == Models.BranchSortMode.Name)
-                    SortNodesByName(Locals);
-                else
-                    SortNodesByTime(Locals);
+                // [fork:custom-branch-sort] Upstream had if/else for Name vs CommitterDate; expanded to switch to add Custom case
+                switch (_localSortMode)
+                {
+                    case Models.BranchSortMode.Name:
+                        SortNodesByName(Locals);
+                        break;
+                    case Models.BranchSortMode.CommitterDate:
+                        SortNodesByTime(Locals);
+                        break;
+                    case Models.BranchSortMode.Custom:
+                        SortNodesByCustomOrder(Locals, _customLocalOrder);
+                        break;
+                }
 
-                if (_remoteSortMode == Models.BranchSortMode.Name)
-                    SortNodesByName(Remotes);
-                else
-                    SortNodesByTime(Remotes);
+                switch (_remoteSortMode)
+                {
+                    case Models.BranchSortMode.Name:
+                        SortNodesByName(Remotes);
+                        break;
+                    case Models.BranchSortMode.CommitterDate:
+                        SortNodesByTime(Remotes);
+                        break;
+                    case Models.BranchSortMode.Custom:
+                        SortNodesByCustomOrder(Remotes, _customRemoteOrder);
+                        break;
+                }
             }
 
             private void MakeBranchNode(Models.Branch branch, List<BranchTreeNode> roots, Dictionary<string, BranchTreeNode> folders, string prefix, bool bForceExpanded)
@@ -252,8 +272,49 @@ namespace SourceGit.ViewModels
                     SortNodesByTime(node.Children);
             }
 
+            // [fork:custom-branch-sort] Sort branches by user-defined order; falls back to name for branches not in customOrder
+            private void SortNodesByCustomOrder(List<BranchTreeNode> nodes, List<string> customOrder)
+            {
+                if (customOrder == null || customOrder.Count == 0)
+                {
+                    SortNodesByName(nodes);
+                    return;
+                }
+
+                var orderMap = new Dictionary<string, int>();
+                for (int i = 0; i < customOrder.Count; i++)
+                    orderMap[customOrder[i]] = i;
+
+                nodes.Sort((l, r) =>
+                {
+                    if (l.Backend is Models.Branch { IsDetachedHead: true })
+                        return -1;
+
+                    var lHasOrder = orderMap.TryGetValue(l.Path, out var lOrder);
+                    var rHasOrder = orderMap.TryGetValue(r.Path, out var rOrder);
+
+                    if (lHasOrder && rHasOrder)
+                        return lOrder.CompareTo(rOrder);
+                    if (lHasOrder)
+                        return -1;
+                    if (rHasOrder)
+                        return 1;
+
+                    return Models.NumericSort.Compare(l.Name, r.Name);
+                });
+
+                foreach (var node in nodes)
+                {
+                    if (node.Children.Count > 0)
+                        SortNodesByCustomOrder(node.Children, customOrder);
+                }
+            }
+
             private readonly Models.BranchSortMode _localSortMode;
             private readonly Models.BranchSortMode _remoteSortMode;
+            // [fork:custom-branch-sort] Backing fields for custom sort orders
+            private readonly List<string> _customLocalOrder;
+            private readonly List<string> _customRemoteOrder;
             private readonly HashSet<string> _expanded = new HashSet<string>();
         }
     }

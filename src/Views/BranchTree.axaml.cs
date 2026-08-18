@@ -282,6 +282,25 @@ namespace SourceGit.Views
             set => SetAndRaise(NodesProperty, ref _nodes, value);
         }
 
+        // [fork:custom-branch-sort] IsLocal selects which sort-order list to write back. IsCustomSort controls grip handle visibility.
+        public static readonly StyledProperty<bool> IsLocalProperty =
+            AvaloniaProperty.Register<BranchTree, bool>(nameof(IsLocal), true);
+
+        public bool IsLocal
+        {
+            get => GetValue(IsLocalProperty);
+            set => SetValue(IsLocalProperty, value);
+        }
+
+        public static readonly StyledProperty<bool> IsCustomSortProperty =
+            AvaloniaProperty.Register<BranchTree, bool>(nameof(IsCustomSort), false);
+
+        public bool IsCustomSort
+        {
+            get => GetValue(IsCustomSortProperty);
+            set => SetValue(IsCustomSortProperty, value);
+        }
+
         public AvaloniaList<ViewModels.BranchTreeNode> Rows
         {
             get;
@@ -431,6 +450,9 @@ namespace SourceGit.Views
 
         private void OnNodePointerPressed(object sender, PointerPressedEventArgs e)
         {
+            // [fork:custom-branch-sort] Start drag tracking for custom sort mode
+            OnDragPointerPressed(sender, e);
+
             var ctrl = OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Control;
             if (e.KeyModifiers.HasFlag(ctrl) || e.KeyModifiers.HasFlag(KeyModifiers.Shift))
                 return;
@@ -1416,5 +1438,162 @@ namespace SourceGit.Views
 
         private List<ViewModels.BranchTreeNode> _nodes = null;
         private bool _disableSelectionChangingEvent = false;
+
+        // [fork:custom-branch-sort] All drag-drop reorder logic for branch trees in Custom sort mode
+        #region Drag-Drop Reorder (Custom Sort Mode)
+
+        private static readonly DataFormat<string> _dndBranchFormat =
+            DataFormat.CreateStringApplicationFormat("sourcegit-dnd-branch-node");
+
+        private bool _pressedForDrag = false;
+        private bool _startedDrag = false;
+        private Point _pressedPosition;
+        private PointerPressedEventArgs _pressedForDragEvent = null;
+        private ViewModels.BranchTreeNode _pressedNode;
+
+        private bool IsCustomSortMode()
+        {
+            if (DataContext is not ViewModels.Repository repo)
+                return false;
+
+            return IsLocal
+                ? repo.LocalBranchSortMode == Models.BranchSortMode.Custom
+                : repo.RemoteBranchSortMode == Models.BranchSortMode.Custom;
+        }
+
+        private void OnDragPointerPressed(object sender, PointerPressedEventArgs e)
+        {
+            if (!IsCustomSortMode())
+                return;
+
+            if (sender is not Border border || border.DataContext is not ViewModels.BranchTreeNode node)
+                return;
+
+            if (!e.GetCurrentPoint(border).Properties.IsLeftButtonPressed)
+                return;
+
+            _pressedForDrag = true;
+            _startedDrag = false;
+            _pressedPosition = e.GetPosition(border);
+            _pressedForDragEvent = e;
+            _pressedNode = node;
+        }
+
+        private void OnDragPointerReleased(object sender, PointerReleasedEventArgs e)
+        {
+            _pressedForDrag = false;
+            _startedDrag = false;
+            _pressedForDragEvent = null;
+            _pressedNode = null;
+        }
+
+        private async void OnDragPointerMoved(object sender, PointerEventArgs e)
+        {
+            if (!_pressedForDrag || _startedDrag || sender is not Border border)
+                return;
+
+            var delta = e.GetPosition(border) - _pressedPosition;
+            var sizeSquared = delta.X * delta.X + delta.Y * delta.Y;
+            if (sizeSquared < 64)
+                return;
+
+            _startedDrag = true;
+
+            var data = new DataTransfer();
+            data.Add(DataTransferItem.Create(_dndBranchFormat, _pressedNode.Path));
+            await DragDrop.DoDragDropAsync(_pressedForDragEvent, data, DragDropEffects.Move);
+
+            _pressedForDrag = false;
+            _startedDrag = false;
+            _pressedForDragEvent = null;
+            _pressedNode = null;
+        }
+
+        private void OnDragOver(object sender, DragEventArgs e)
+        {
+            if (!IsCustomSortMode() || !e.DataTransfer.Contains(_dndBranchFormat))
+            {
+                e.DragEffects = DragDropEffects.None;
+                return;
+            }
+
+            e.DragEffects = DragDropEffects.Move;
+            e.Handled = true;
+        }
+
+        private void OnDrop(object sender, DragEventArgs e)
+        {
+            if (!IsCustomSortMode())
+                return;
+
+            if (e.DataTransfer.TryGetValue(_dndBranchFormat) is not { Length: > 0 } sourcePath)
+                return;
+
+            ViewModels.BranchTreeNode targetNode = null;
+            if (sender is ListBoxItem item && item.DataContext is ViewModels.BranchTreeNode tn)
+                targetNode = tn;
+            else if (sender is Border border && border.DataContext is ViewModels.BranchTreeNode bn)
+                targetNode = bn;
+
+            if (targetNode == null || targetNode.Path == sourcePath)
+                return;
+
+            var nodes = Nodes;
+            if (nodes == null)
+                return;
+
+            var sourceParentList = FindParentList(nodes, sourcePath);
+            var targetParentList = FindParentList(nodes, targetNode.Path);
+
+            if (sourceParentList == null || targetParentList == null || sourceParentList != targetParentList)
+                return;
+
+            var sourceIdx = sourceParentList.FindIndex(n => n.Path == sourcePath);
+            var targetIdx = sourceParentList.FindIndex(n => n.Path == targetNode.Path);
+
+            if (sourceIdx < 0 || targetIdx < 0 || sourceIdx == targetIdx)
+                return;
+
+            var sourceNode = sourceParentList[sourceIdx];
+            sourceParentList.RemoveAt(sourceIdx);
+            targetIdx = sourceParentList.FindIndex(n => n.Path == targetNode.Path);
+            sourceParentList.Insert(targetIdx < 0 ? sourceParentList.Count : targetIdx, sourceNode);
+
+            if (DataContext is ViewModels.Repository repo)
+            {
+                repo.SaveCustomBranchOrder(nodes, IsLocal);
+
+                _disableSelectionChangingEvent = true;
+                Rows.Clear();
+                var rows = new List<ViewModels.BranchTreeNode>();
+                MakeRows(rows, nodes, 0);
+                Rows.AddRange(rows);
+                _disableSelectionChangingEvent = false;
+
+                RaiseEvent(new RoutedEventArgs(RowsChangedEvent));
+            }
+
+            e.Handled = true;
+        }
+
+        private List<ViewModels.BranchTreeNode> FindParentList(List<ViewModels.BranchTreeNode> nodes, string path)
+        {
+            foreach (var node in nodes)
+            {
+                if (node.Path == path)
+                    return nodes;
+
+                if (node.Children.Count > 0)
+                {
+                    var result = FindParentList(node.Children, path);
+                    if (result != null)
+                        return result;
+                }
+            }
+
+            return null;
+        }
+
+        #endregion
     }
 }

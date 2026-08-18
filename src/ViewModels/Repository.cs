@@ -397,6 +397,66 @@ namespace SourceGit.ViewModels
             }
         }
 
+        // [fork:custom-branch-sort] Local/Remote sort props rebuild branch trees on change so Custom mode applies immediately
+        public Models.BranchSortMode LocalBranchSortMode
+        {
+            get => _uiStates.LocalBranchSortMode;
+            set
+            {
+                if (_uiStates.LocalBranchSortMode != value)
+                {
+                    _uiStates.LocalBranchSortMode = value;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(IsSortingLocalBranchByName));
+
+                    var builder = BuildBranchTree(_branches, _remotes);
+                    LocalBranchTrees = builder.Locals;
+                    RemoteBranchTrees = builder.Remotes;
+                }
+            }
+        }
+
+        public Models.BranchSortMode RemoteBranchSortMode
+        {
+            get => _uiStates.RemoteBranchSortMode;
+            set
+            {
+                if (_uiStates.RemoteBranchSortMode != value)
+                {
+                    _uiStates.RemoteBranchSortMode = value;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(IsSortingRemoteBranchByName));
+
+                    var builder = BuildBranchTree(_branches, _remotes);
+                    LocalBranchTrees = builder.Locals;
+                    RemoteBranchTrees = builder.Remotes;
+                }
+            }
+        }
+
+        // [fork:custom-branch-sort] Persists current visual order into UIState; called after drag-drop completes
+        public void SaveCustomBranchOrder(List<BranchTreeNode> nodes, bool isLocal)
+        {
+            var order = new List<string>();
+            CollectBranchOrder(order, nodes);
+
+            if (isLocal)
+                _uiStates.CustomLocalBranchSortOrder = order;
+            else
+                _uiStates.CustomRemoteBranchSortOrder = order;
+        }
+
+        // [fork:custom-branch-sort] Walks BranchTreeNode tree depth-first, recording every Path
+        private void CollectBranchOrder(List<string> order, List<BranchTreeNode> nodes)
+        {
+            foreach (var node in nodes)
+            {
+                order.Add(node.Path);
+                if (node.Children.Count > 0)
+                    CollectBranchOrder(order, node.Children);
+            }
+        }
+
         public bool IsSortingTagsByName
         {
             get => _uiStates.TagSortMode == Models.TagSortMode.Name;
@@ -1681,7 +1741,12 @@ namespace SourceGit.ViewModels
 
         private BranchTreeNode.Builder BuildBranchTree(List<Models.Branch> branches, List<Models.Remote> remotes, bool validateExpandedNodes = true)
         {
-            var builder = new BranchTreeNode.Builder(_uiStates.LocalBranchSortMode, _uiStates.RemoteBranchSortMode);
+            // [fork:custom-branch-sort] Pass custom sort orders to Builder so Custom mode resolves correctly
+            var builder = new BranchTreeNode.Builder(
+                _uiStates.LocalBranchSortMode,
+                _uiStates.RemoteBranchSortMode,
+                _uiStates.CustomLocalBranchSortOrder,
+                _uiStates.CustomRemoteBranchSortOrder);
             if (string.IsNullOrEmpty(_filter))
             {
                 builder.SetExpandedNodes(_uiStates.ExpandedBranchNodesInSideBar);

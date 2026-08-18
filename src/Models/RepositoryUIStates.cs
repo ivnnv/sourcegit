@@ -69,6 +69,19 @@ namespace SourceGit.Models
             set;
         } = BranchSortMode.Name;
 
+        // [fork:custom-branch-sort] Persisted user-defined branch ordering (full names) per repo
+        public List<string> CustomLocalBranchSortOrder
+        {
+            get;
+            set;
+        } = [];
+
+        public List<string> CustomRemoteBranchSortOrder
+        {
+            get;
+            set;
+        } = [];
+
         public bool ShowTagsAsTree
         {
             get;
