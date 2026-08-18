@@ -22,6 +22,22 @@ namespace SourceGit.Views
             set => SetAndRaise(BookmarkProperty, ref _bookmark, value);
         }
 
+        // [fork:colored-tabs] ARGB used when Bookmark is the custom sentinel (-1)
+        public static readonly DirectProperty<BookmarkSelector, uint> CustomProperty =
+            AvaloniaProperty.RegisterDirect<BookmarkSelector, uint>(
+                nameof(Custom),
+                static o => o.Custom,
+                static (o, v) => o.Custom = v);
+
+        public uint Custom
+        {
+            get => _custom;
+            set => SetAndRaise(CustomProperty, ref _custom, value);
+        }
+
+        // [fork:colored-tabs] Raised when the trailing custom swatch is clicked, so the host can open a color picker
+        public event EventHandler CustomRequested;
+
         public BookmarkSelector()
         {
             var geo = Application.Current!.FindResource("Icons.Bookmark") as StreamGeometry;
@@ -36,7 +52,7 @@ namespace SourceGit.Views
                 _icon.Transform = new MatrixTransform(_icon.Transform.Value * transform);
 
             var x = 2.0;
-            for (var i = 0; i < Models.Bookmarks.Brushes.Length; i++)
+            for (var i = 0; i < Models.Bookmarks.Brushes.Length + 1; i++)
             {
                 var hitBox = new Rect(x - 2.5, 2.5, 18, 20);
                 _hitBoxes.Add(hitBox);
@@ -51,16 +67,22 @@ namespace SourceGit.Views
 
             var defaultBrush = this.FindResource("Brush.FG1") as IBrush;
             var selectedBorder = new Pen(new SolidColorBrush((Color)this.FindResource("SystemAccentColor")!));
+            var dashedBorder = new Pen(defaultBrush, 1, new DashStyle([2, 2], 0));
 
             for (var i = 0; i < _hitBoxes.Count; i++)
             {
                 var hitBox = _hitBoxes[i];
-                if (i == _bookmark)
+                // [fork:colored-tabs] last box is the custom swatch, represented by the -1 sentinel
+                var value = i == Models.Bookmarks.Brushes.Length ? Models.Bookmarks.Custom : i;
+                if (value == _bookmark)
                     context.DrawRectangle(selectedBorder, hitBox, 3);
 
-                var bursh = Models.Bookmarks.Get(i) ?? defaultBrush;
+                var bursh = Models.Bookmarks.Get(value, _custom) ?? defaultBrush;
                 using (context.PushTransform(Matrix.CreateTranslation(hitBox.X + 3, 5)))
                     context.DrawGeometry(bursh, null, _icon);
+
+                if (value == Models.Bookmarks.Custom)
+                    context.DrawRectangle(dashedBorder, hitBox, 3);
             }
         }
 
@@ -68,7 +90,7 @@ namespace SourceGit.Views
         {
             base.OnPropertyChanged(change);
 
-            if (change.Property == BookmarkProperty)
+            if (change.Property == BookmarkProperty || change.Property == CustomProperty)
                 InvalidateVisual();
             else if (change.Property.Name == nameof(ActualThemeVariant) && change.NewValue != null)
                 InvalidateVisual();
@@ -83,11 +105,21 @@ namespace SourceGit.Views
                 var pos = e.GetPosition(this);
                 for (var i = 0; i < _hitBoxes.Count; i++)
                 {
-                    if (_hitBoxes[i].Contains(pos))
+                    if (!_hitBoxes[i].Contains(pos))
+                        continue;
+
+                    // [fork:colored-tabs] clicking the trailing swatch selects custom and asks the host for a color
+                    if (i == Models.Bookmarks.Brushes.Length)
+                    {
+                        Bookmark = Models.Bookmarks.Custom;
+                        CustomRequested?.Invoke(this, EventArgs.Empty);
+                    }
+                    else
                     {
                         Bookmark = i;
-                        break;
                     }
+
+                    break;
                 }
 
                 e.Handled = true;
@@ -96,10 +128,12 @@ namespace SourceGit.Views
 
         protected override Size MeasureOverride(Size availableSize)
         {
-            return new Size(8 * 14 + 7 * 12 + 4, 24);
+            // [fork:colored-tabs] +1 slot for the custom swatch
+            return new Size(9 * 14 + 8 * 12 + 4, 24);
         }
 
         private int _bookmark = 0;
+        private uint _custom = 0;
         private Geometry _icon = null;
         private List<Rect> _hitBoxes = [];
     }
