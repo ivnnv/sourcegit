@@ -455,6 +455,22 @@ namespace SourceGit
             return false;
         }
 
+        // [fork:explicit-branches] Reads "--branch <name>" from anywhere in the argument list.
+        // Empty when absent, so every existing single-path invocation behaves exactly as before.
+        private static string ParseBranchArg(string[] args)
+        {
+            if (args is not { Length: > 1 })
+                return string.Empty;
+
+            for (var i = 0; i < args.Length - 1; i++)
+            {
+                if (args[i].Equals("--branch", StringComparison.Ordinal))
+                    return args[i + 1].Trim();
+            }
+
+            return string.Empty;
+        }
+
         private void TryLaunchAsNormal(IClassicDesktopStyleApplicationLifetime desktop)
         {
             _ipcChannel = new Models.IpcChannel();
@@ -467,6 +483,11 @@ namespace SourceGit
                     if (arg.Length > 0 && !Path.IsPathFullyQualified(arg))
                         arg = Path.GetFullPath(arg);
                 }
+
+                // [fork:explicit-branches] Forward "--branch <name>" as the tab-separated second field
+                var forwardBranch = ParseBranchArg(desktop.Args);
+                if (!string.IsNullOrEmpty(forwardBranch))
+                    arg = $"{arg}\t{forwardBranch}";
 
                 _ipcChannel.SendToFirstInstance(arg);
                 Environment.Exit(0);
@@ -486,18 +507,32 @@ namespace SourceGit
             }
 
             string startupRepo = null;
-            if (desktop.Args is { Length: 1 })
+            if (desktop.Args is { Length: > 0 })
             {
                 var arg = desktop.Args[0].Replace('\\', '/').TrimEnd('/').Trim('\"').Trim();
                 if (Directory.Exists(arg))
                     startupRepo = arg;
             }
 
+            // [fork:explicit-branches] "--branch <name>" pins that branch into the sidebar allowlist on open
+            var startupBranch = ParseBranchArg(desktop.Args);
+
             var pref = ViewModels.Preferences.Instance;
             pref.SetCanModify();
             pref.UpdateAvailableAIModels();
 
             _launcher = new ViewModels.Launcher(startupRepo);
+
+            // [fork:explicit-branches] Pin after the launcher has opened the repo tab
+            if (!string.IsNullOrEmpty(startupBranch))
+            {
+                Dispatcher.UIThread.Post(() =>
+                {
+                    if (_launcher.ActivePage?.Data is ViewModels.Repository active)
+                        active.MarkLocalBranchVisible(startupBranch);
+                });
+            }
+
             desktop.MainWindow = new Views.Launcher() { DataContext = _launcher };
             desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
