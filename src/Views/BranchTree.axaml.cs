@@ -804,6 +804,24 @@ namespace SourceGit.Views
                     menu.Items.Add(compareWithUpstream);
                 }
 
+                menu.Items.Add(new MenuItem() { Header = "-" });
+
+                // [fork:branch-diff] One-click Compare with each "master/main" base.
+                // Adds an entry for the local default branch and one per remote whose
+                // HEAD is set, so a fork user can diff against (local), origin and upstream
+                // independently and notice when those refs have drifted apart.
+                foreach (var (label, target) in ResolveCompareBases(repo, branch))
+                {
+                    var compareWithBase = new MenuItem();
+                    compareWithBase.Header = App.Text("BranchCM.CompareWithDefault", label);
+                    compareWithBase.Icon = this.CreateMenuIcon("Icons.Compare");
+                    compareWithBase.Click += (_, _) =>
+                    {
+                        this.ShowWindow(new ViewModels.Compare(repo, target, branch));
+                    };
+                    menu.Items.Add(compareWithBase);
+                }
+
                 var compareWith = new MenuItem();
                 compareWith.Header = App.Text("BranchCM.CompareWith");
                 compareWith.Icon = this.CreateMenuIcon("Icons.Compare");
@@ -1434,6 +1452,57 @@ namespace SourceGit.Views
 
             menu.Items.Add(custom);
             menu.Items.Add(new MenuItem() { Header = "-" });
+        }
+
+        // [fork:branch-diff] Compare-base resolver used by the "Compare with X master" menu items.
+        // Returns one entry per ref worth diffing the current branch against:
+        //   - the local branch matching the default short name (labelled "(local) master")
+        //   - each remote whose HEAD is set (labelled e.g. "origin/master", "upstream/master")
+        // Skips entries that point at the supplied branch and remotes whose HEAD is unset.
+        // The local default name is taken from the first remote whose HEAD resolves; if remotes
+        // disagree on the name (rare) only the first remote's name is used to find the local.
+        //
+        // Edge case (intentionally not merged): a repo where origin/HEAD = origin/main but
+        // upstream/HEAD = upstream/master (e.g. fork created before the project renamed master
+        // to main). The submenu would show mixed names like "origin/main" + "upstream/master".
+        // Each label still matches its actual ref so the behaviour is correct, just visually
+        // inconsistent. Rare enough that no merging is attempted.
+        private List<(string Label, Models.Branch Branch)> ResolveCompareBases(ViewModels.Repository repo, Models.Branch self)
+        {
+            var results = new List<(string, Models.Branch)>();
+            if (repo.Remotes.Count == 0)
+                return results;
+
+            var remoteHeads = new List<(string Remote, string FullRef)>();
+            foreach (var remote in repo.Remotes)
+            {
+                var fullRef = new Commands.QueryDefaultBranch(repo.FullPath, remote.Name).GetResult();
+                if (!string.IsNullOrEmpty(fullRef))
+                    remoteHeads.Add((remote.Name, fullRef));
+            }
+
+            if (remoteHeads.Count == 0)
+                return results;
+
+            var firstRef = remoteHeads[0].FullRef;
+            var slash = firstRef.IndexOf('/');
+            if (slash > 0 && slash < firstRef.Length - 1)
+            {
+                var shortName = firstRef.Substring(slash + 1);
+                var localMatch = repo.Branches.Find(b => b.IsLocal && b.Name.Equals(shortName, StringComparison.Ordinal));
+                if (localMatch != null && !localMatch.FullName.Equals(self.FullName, StringComparison.Ordinal))
+                    results.Add(($"(local) {shortName}", localMatch));
+            }
+
+            foreach (var (_, fullRef) in remoteHeads)
+            {
+                var remoteTrackingRef = $"refs/remotes/{fullRef}";
+                var match = repo.Branches.Find(b => !b.IsLocal && b.FullName.Equals(remoteTrackingRef, StringComparison.Ordinal));
+                if (match != null && !match.FullName.Equals(self.FullName, StringComparison.Ordinal))
+                    results.Add((fullRef, match));
+            }
+
+            return results;
         }
 
         private List<ViewModels.BranchTreeNode> _nodes = null;

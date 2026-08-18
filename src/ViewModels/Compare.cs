@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.Threading.Tasks;
 using Avalonia.Threading;
@@ -75,12 +76,76 @@ namespace SourceGit.ViewModels
             {
                 if (SetProperty(ref _selectedChanges, value))
                 {
+                    // [fork:branch-diff] Folder/multi-select shows every file stacked in the right pane
+                    // instead of nothing, so a folder click renders the cumulative diff for everything
+                    // inside it. Single-select keeps the original DiffContext path untouched.
                     if (value is { Count: 1 })
+                    {
                         DiffContext = new DiffContext(_repo.FullPath, new Models.DiffOption(_based, _to, value[0]), _diffContext);
-                    else
+                        MultiDiffContexts = [];
+                    }
+                    else if (value is { Count: > 1 })
+                    {
                         DiffContext = null;
+                        // [fork:branch-diff] Cap stacked diffs so a top-level folder selection does not
+                        // spawn hundreds of concurrent `git diff` processes. If more files exist, the user
+                        // can drill into a sub-folder. 30 is generous for typical PR-sized changesets.
+                        const int MaxStacked = 30;
+                        var take = Math.Min(value.Count, MaxStacked);
+                        var ctxs = new List<DiffContext>(take);
+                        for (var i = 0; i < take; i++)
+                            ctxs.Add(new DiffContext(_repo.FullPath, new Models.DiffOption(_based, _to, value[i]), null));
+                        MultiDiffContexts = ctxs;
+                        MultiDiffOverflow = value.Count > MaxStacked ? value.Count - MaxStacked : 0;
+                    }
+                    else
+                    {
+                        DiffContext = null;
+                        MultiDiffContexts = [];
+                    }
                 }
             }
+        }
+
+        // [fork:branch-diff] Populated when SelectedChanges has 2+ items (e.g. folder selection).
+        public List<DiffContext> MultiDiffContexts
+        {
+            get => _multiDiffContexts;
+            private set
+            {
+                // Detach any prior preferences listener so we don't leak handlers as the
+                // user clicks around between single, folder, and empty selections.
+                if (_multiDiffPrefsHandler != null)
+                {
+                    Preferences.Instance.PropertyChanged -= _multiDiffPrefsHandler;
+                    _multiDiffPrefsHandler = null;
+                }
+
+                if (SetProperty(ref _multiDiffContexts, value) && value is { Count: > 1 })
+                {
+                    // When the user toggles whitespace/full-text/side-by-side on one stacked panel,
+                    // every other stacked panel needs to reload too — they all read the same
+                    // global Preferences but only the toggled instance fires its own LoadContent.
+                    _multiDiffPrefsHandler = (_, e) =>
+                    {
+                        if (e.PropertyName != nameof(Preferences.IgnoreWhitespaceChangesInDiff) &&
+                            e.PropertyName != nameof(Preferences.UseFullTextDiff) &&
+                            e.PropertyName != nameof(Preferences.UseSideBySideDiff))
+                            return;
+
+                        foreach (var ctx in _multiDiffContexts)
+                            ctx.Refresh();
+                    };
+                    Preferences.Instance.PropertyChanged += _multiDiffPrefsHandler;
+                }
+            }
+        }
+
+        // [fork:branch-diff] Number of files truncated from MultiDiffContexts above the cap. > 0 means more files exist than are shown.
+        public int MultiDiffOverflow
+        {
+            get => _multiDiffOverflow;
+            private set => SetProperty(ref _multiDiffOverflow, value);
         }
 
         public string SearchFilter
@@ -405,5 +470,9 @@ namespace SourceGit.ViewModels
         private List<Models.Commit> _rightOnlyCommits = [];
         private string _searchFilter = string.Empty;
         private DiffContext _diffContext = null;
+        // [fork:branch-diff] Backing fields for MultiDiffContexts + overflow count + prefs listener
+        private List<DiffContext> _multiDiffContexts = [];
+        private int _multiDiffOverflow = 0;
+        private PropertyChangedEventHandler _multiDiffPrefsHandler = null;
     }
 }

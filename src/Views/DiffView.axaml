@@ -31,11 +31,12 @@
             <ContentControl.DataTemplates>
               <DataTemplate DataType="vm:TextDiffContext">
                 <StackPanel Orientation="Horizontal" Spacing="4">
-                  <TextBlock FontSize="11"
+                  <!-- [fork:branch-diff] Slightly larger header text for readability when stacking diffs -->
+                  <TextBlock FontSize="13"
                              Foreground="Green"
                              Text="{Binding Data.AddedLines, Mode=OneWay, StringFormat=+{0}}"
                              IsVisible="{Binding Data.AddedLines, Converter={x:Static c:IntConverters.IsGreaterThanZero}}"/>
-                  <TextBlock FontSize="11"
+                  <TextBlock FontSize="13"
                              Foreground="Red"
                              Text="{Binding Data.DeletedLines, Mode=OneWay, StringFormat=-{0}}"
                              IsVisible="{Binding Data.DeletedLines, Converter={x:Static c:IntConverters.IsGreaterThanZero}}"/>
@@ -45,11 +46,12 @@
           </ContentControl>
 
           <!-- Title -->
+          <!-- [fork:branch-diff] Slightly larger title text for readability -->
           <TextBlock Grid.Column="3"
                      Margin="4,0,0,0"
                      Text="{Binding Title}"
                      ToolTip.Tip="{Binding Title}"
-                     FontSize="11"
+                     FontSize="13"
                      TextTrimming="CharacterEllipsis"/>
 
           <!-- Toolbar Buttons -->

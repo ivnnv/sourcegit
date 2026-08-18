@@ -227,6 +227,38 @@
               </DataTemplate>
             </ContentControl.DataTemplates>
           </ContentControl>
+
+          <!-- [fork:branch-diff] Folder / multi-select: stack one DiffView per file in a single scroller.
+               Background matches the diff chrome so the gaps between stacked DiffViews don't expose the
+               welcome placeholder underneath. -->
+          <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                        VerticalScrollBarVisibility="Auto"
+                        Background="{DynamicResource Brush.Window}"
+                        IsVisible="{Binding MultiDiffContexts, Converter={x:Static c:ListConverters.IsNotNullOrEmpty}}">
+            <StackPanel Orientation="Vertical">
+              <ItemsControl ItemsSource="{Binding MultiDiffContexts}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <StackPanel Orientation="Vertical" Spacing="20"/>
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate DataType="vm:DiffContext">
+                    <v:DiffView MinHeight="200"/>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <Border BorderThickness="1" BorderBrush="{DynamicResource Brush.Border2}"
+                      Background="{DynamicResource Brush.Window}"
+                      Padding="12,8" Margin="0,20,0,0"
+                      IsVisible="{Binding MultiDiffOverflow, Converter={x:Static c:IntConverters.IsGreaterThanZero}}">
+                <TextBlock HorizontalAlignment="Center"
+                           Foreground="{DynamicResource Brush.FG2}"
+                           FontStyle="Italic"
+                           Text="{Binding MultiDiffOverflow, StringFormat='+ {0} more files (drill into a sub-folder to see them)'}"/>
+              </Border>
+            </StackPanel>
+          </ScrollViewer>
         </Grid>
       </Grid>
 
