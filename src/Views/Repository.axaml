@@ -241,13 +241,27 @@
         <Grid Grid.Row="2" x:Name="LeftSidebarGroups" Margin="0,4,0,0" RowDefinitions="28,Auto,28,Auto,28,Auto,28,Auto,28,Auto" SizeChanged="OnLeftSidebarSizeChanged">
           <!-- Local Branches -->
           <ToggleButton Grid.Row="0" Classes="group_expander" IsChecked="{Binding IsLocalBranchGroupExpanded, Mode=TwoWay}">
-            <Grid ColumnDefinitions="16,*,Auto,Auto">
+            <Grid ColumnDefinitions="16,*,Auto,Auto,Auto">
               <Path Grid.Column="0" Width="11" Height="11" HorizontalAlignment="Left" Data="{StaticResource Icons.Local}" Fill="{DynamicResource Brush.FG2}"/>
               <StackPanel Grid.Column="1" Orientation="Horizontal">
                 <TextBlock Classes="group_header_label" Text="{DynamicResource Text.Repository.LocalBranches}"/>
-                <TextBlock Classes="group_header_label" Text="{Binding LocalBranchesCount, StringFormat='({0})'}" Margin="4,0,0,0"/>
+                <!-- [fork:explicit-branches] "(4/30)" while the allowlist hides branches, "(30)" otherwise -->
+                <TextBlock Classes="group_header_label" Text="{Binding LocalBranchesCountLabel}" Margin="4,0,0,0"/>
               </StackPanel>
+              <!-- [fork:explicit-branches] Reveal toggle. A Button, not a ToggleButton: the icon_button
+                   style only targets Button and RepeatButton, so a ToggleButton draws default chrome. -->
               <Button Grid.Column="2"
+                      Classes="icon_button"
+                      Width="14"
+                      Margin="8,0,0,0"
+                      Click="OnToggleShowAllLocalBranches"
+                      ToolTip.Tip="{DynamicResource Text.Repository.ShowAllLocalBranches}">
+                <Grid>
+                  <Path Width="12" Height="12" Data="{StaticResource Icons.EyeClose}" IsVisible="{Binding !ShowAllLocalBranches}"/>
+                  <Path Width="12" Height="12" Data="{StaticResource Icons.Eye}" IsVisible="{Binding ShowAllLocalBranches}"/>
+                </Grid>
+              </Button>
+              <Button Grid.Column="3"
                       Classes="icon_button"
                       Width="14"
                       Margin="8,0,0,0"
@@ -260,7 +274,7 @@
                   <Path Width="12" Height="12" Data="{StaticResource Icons.OrderByCustom}" IsVisible="{Binding LocalBranchSortMode, Mode=OneWay, Converter={x:Static c:IntConverters.IsEnumTwo}}"/>
                 </Grid>
               </Button>
-              <Button Grid.Column="3" Classes="icon_button" Width="14" Margin="8,0" Command="{Binding CreateNewBranch}" HotKey="{OnPlatform Ctrl+B, macOS=⌘+B}">
+              <Button Grid.Column="4" Classes="icon_button" Width="14" Margin="8,0" Command="{Binding CreateNewBranch}" HotKey="{OnPlatform Ctrl+B, macOS=⌘+B}">
                 <ToolTip.Tip>
                   <TextBlock>
                     <Run Text="{DynamicResource Text.Repository.NewBranch}"/>

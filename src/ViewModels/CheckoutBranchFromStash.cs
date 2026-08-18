@@ -56,6 +56,9 @@ namespace SourceGit.ViewModels
 
             if (succ)
             {
+                // [fork:explicit-branches] This path creates and checks out a branch without going through
+                // RefreshAfterCreateBranch or RefreshAfterCheckoutBranch, so it allowlists the branch itself.
+                _repo.MarkLocalBranchVisible(_branchName);
                 _repo.MarkWorkingCopyDirtyManually();
                 _repo.MarkStashesDirtyManually();
             }

@@ -82,6 +82,13 @@ namespace SourceGit.Models
             set;
         } = [];
 
+        // [fork:explicit-branches] Full names of local branches the user opened here; the sidebar shows only these
+        public List<string> VisibleLocalBranches
+        {
+            get;
+            set;
+        } = [];
+
         public bool ShowTagsAsTree
         {
             get;

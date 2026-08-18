@@ -714,6 +714,15 @@ namespace SourceGit.Views
             e.Handled = true;
         }
 
+        // [fork:explicit-branches] Flips the reveal state; the allowlist itself is untouched
+        private void OnToggleShowAllLocalBranches(object sender, RoutedEventArgs e)
+        {
+            if (DataContext is ViewModels.Repository repo)
+                repo.ShowAllLocalBranches = !repo.ShowAllLocalBranches;
+
+            e.Handled = true;
+        }
+
         private void OnOpenSortLocalBranchMenu(object sender, RoutedEventArgs e)
         {
             if (sender is Button button && DataContext is ViewModels.Repository repo)

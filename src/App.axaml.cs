@@ -455,6 +455,22 @@ namespace SourceGit
             return false;
         }
 
+        // [fork:explicit-branches] Reads "--branch <name>" from anywhere in the argument list.
+        // Empty when absent, so every existing single-path invocation behaves exactly as before.
+        private static string ParseBranchArg(string[] args)
+        {
+            if (args is not { Length: > 1 })
+                return string.Empty;
+
+            for (var i = 0; i < args.Length - 1; i++)
+            {
+                if (args[i].Equals("--branch", StringComparison.Ordinal))
+                    return args[i + 1].Trim();
+            }
+
+            return string.Empty;
+        }
+
         private void TryLaunchAsNormal(IClassicDesktopStyleApplicationLifetime desktop)
         {
             _ipcChannel = new Models.IpcChannel();
@@ -467,6 +483,11 @@ namespace SourceGit
                     if (arg.Length > 0 && !Path.IsPathFullyQualified(arg))
                         arg = Path.GetFullPath(arg);
                 }
+
+                // [fork:explicit-branches] Forward "--branch <name>" using the versioned payload form
+                var forwardBranch = ParseBranchArg(desktop.Args);
+                if (!string.IsNullOrEmpty(forwardBranch))
+                    arg = $"v1\t{arg}\t{forwardBranch}";
 
                 _ipcChannel.SendToFirstInstance(arg);
                 Environment.Exit(0);
@@ -486,18 +507,32 @@ namespace SourceGit
             }
 
             string startupRepo = null;
-            if (desktop.Args is { Length: 1 })
+            if (desktop.Args is { Length: > 0 })
             {
                 var arg = desktop.Args[0].Replace('\\', '/').TrimEnd('/').Trim('\"').Trim();
                 if (Directory.Exists(arg))
                     startupRepo = arg;
             }
 
+            // [fork:explicit-branches] "--branch <name>" pins that branch into the sidebar allowlist on open
+            var startupBranch = ParseBranchArg(desktop.Args);
+
             var pref = ViewModels.Preferences.Instance;
             pref.SetCanModify();
             pref.UpdateAvailableAIModels();
 
             _launcher = new ViewModels.Launcher(startupRepo);
+
+            // [fork:explicit-branches] Pin after the launcher has opened the repo tab
+            if (!string.IsNullOrEmpty(startupBranch))
+            {
+                Dispatcher.UIThread.Post(() =>
+                {
+                    if (_launcher.ActivePage?.Data is ViewModels.Repository active)
+                        active.MarkLocalBranchVisible(startupBranch);
+                });
+            }
+
             desktop.MainWindow = new Views.Launcher() { DataContext = _launcher };
             desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
@@ -517,11 +552,43 @@ namespace SourceGit
                 _ipcChannel = null;
             };
 
-            _ipcChannel.MessageReceived += repo =>
+            _ipcChannel.MessageReceived += msg =>
             {
+                // [fork:explicit-branches] The protocol was a bare repo path and still accepts one unchanged.
+                // The new form is "v1\t<repo-path>\t<branch>", which also pins the branch into the sidebar
+                // allowlist so an agent can surface a branch it just created.
+                //
+                // The version prefix exists because a POSIX path may legally contain a tab, so a bare
+                // "<path>\t<branch>" would be ambiguous. Splitting on the LAST tab is then safe: git
+                // forbids control characters in ref names, so a branch name never contains one.
+                var repo = msg;
+                var branch = string.Empty;
+                if (msg.StartsWith("v1\t", StringComparison.Ordinal))
+                {
+                    var payload = msg.Substring(3);
+                    var tab = payload.LastIndexOf('\t');
+                    if (tab > 0)
+                    {
+                        repo = payload.Substring(0, tab);
+                        branch = payload.Substring(tab + 1).Trim();
+                    }
+                    else
+                    {
+                        repo = payload;
+                    }
+                }
+
                 Dispatcher.UIThread.Invoke(() =>
                 {
-                    _launcher.TryOpenRepositoryFromPath(repo);
+                    // Only pin when the repo actually opened, and only on the page that opened for it.
+                    // Otherwise a bad path would allowlist the branch in whichever tab happened to be active.
+                    var opened = _launcher.TryOpenRepositoryFromPath(repo);
+
+                    if (opened &&
+                        !string.IsNullOrEmpty(branch) &&
+                        _launcher.ActivePage?.Data is ViewModels.Repository active)
+                        active.MarkLocalBranchVisible(branch);
+
                     if (desktop.MainWindow is Views.Launcher main)
                         main.BringToTop();
                 });
