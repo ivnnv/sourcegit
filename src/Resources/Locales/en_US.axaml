@@ -794,6 +794,8 @@
   <x:String x:Key="Text.RenameBranch.Target" xml:space="preserve">Branch:</x:String>
   <x:String x:Key="Text.Repository.Abort" xml:space="preserve">ABORT</x:String>
   <x:String x:Key="Text.Repository.AutoFetching" xml:space="preserve">Auto fetching changes from remotes...</x:String>
+  <!-- [fork:explicit-branches] Tooltip on the reveal toggle in the Local Branches header -->
+  <x:String x:Key="Text.Repository.ShowAllLocalBranches" xml:space="preserve">Show branches you have not opened here</x:String>
   <x:String x:Key="Text.Repository.BranchSort" xml:space="preserve">Sort</x:String>
   <x:String x:Key="Text.Repository.BranchSort.ByCommitterDate" xml:space="preserve">By Committer Date</x:String>
   <x:String x:Key="Text.Repository.BranchSort.ByName" xml:space="preserve">By Name</x:String>

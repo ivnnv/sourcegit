@@ -517,11 +517,28 @@ namespace SourceGit
                 _ipcChannel = null;
             };
 
-            _ipcChannel.MessageReceived += repo =>
+            _ipcChannel.MessageReceived += msg =>
             {
+                // [fork:explicit-branches] The protocol used to be a bare repo path. It now also accepts
+                // "<repo-path>\t<branch>", which additionally pins that branch into the sidebar allowlist,
+                // so an agent can surface a branch it just created instead of it being hidden as noise.
+                var repo = msg;
+                var branch = string.Empty;
+                var tab = msg.IndexOf('\t');
+                if (tab > 0)
+                {
+                    repo = msg.Substring(0, tab);
+                    branch = msg.Substring(tab + 1).Trim();
+                }
+
                 Dispatcher.UIThread.Invoke(() =>
                 {
                     _launcher.TryOpenRepositoryFromPath(repo);
+
+                    if (!string.IsNullOrEmpty(branch) &&
+                        _launcher.ActivePage?.Data is ViewModels.Repository active)
+                        active.MarkLocalBranchVisible(branch);
+
                     if (desktop.MainWindow is Views.Launcher main)
                         main.BringToTop();
                 });

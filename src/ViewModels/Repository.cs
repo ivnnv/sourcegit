@@ -434,6 +434,76 @@ namespace SourceGit.ViewModels
             }
         }
 
+        // [fork:explicit-branches] Reveals every local branch for this session without editing the allowlist
+        public bool ShowAllLocalBranches
+        {
+            get => _uiStates.ShowAllLocalBranches;
+            set
+            {
+                if (_uiStates.ShowAllLocalBranches != value)
+                {
+                    _uiStates.ShowAllLocalBranches = value;
+                    OnPropertyChanged();
+
+                    var builder = BuildBranchTree(_branches, _remotes);
+                    LocalBranchTrees = builder.Locals;
+                    RemoteBranchTrees = builder.Remotes;
+                    OnPropertyChanged(nameof(HiddenLocalBranchCount));
+                }
+            }
+        }
+
+        // [fork:explicit-branches] Badge count for the reveal toggle
+        public int HiddenLocalBranchCount
+        {
+            get
+            {
+                var count = 0;
+                foreach (var b in _branches)
+                {
+                    if (b.IsLocal && !IsLocalBranchVisible(b))
+                        count++;
+                }
+
+                return count;
+            }
+        }
+
+        // [fork:explicit-branches] A local branch shows when it is the current HEAD, is allowlisted,
+        // or is genuinely ahead of a configured upstream. A branch with no upstream is NOT auto-shown:
+        // agent-created branches all look like that, and they are the noise this feature removes.
+        public bool IsLocalBranchVisible(Models.Branch branch)
+        {
+            if (!branch.IsLocal)
+                return true;
+
+            if (branch.IsCurrent || branch.Ahead.Count > 0)
+                return true;
+
+            return _uiStates.VisibleLocalBranches.Contains(branch.FullName);
+        }
+
+        // [fork:explicit-branches] Called when the user creates or checks out a branch from inside SourceGit,
+        // and by the IPC channel when an agent asks for one to be surfaced.
+        public void MarkLocalBranchVisible(string fullName)
+        {
+            if (string.IsNullOrEmpty(fullName))
+                return;
+
+            if (!fullName.StartsWith("refs/heads/", StringComparison.Ordinal))
+                fullName = $"refs/heads/{fullName}";
+
+            if (_uiStates.VisibleLocalBranches.Contains(fullName))
+                return;
+
+            _uiStates.VisibleLocalBranches.Add(fullName);
+
+            var builder = BuildBranchTree(_branches, _remotes);
+            LocalBranchTrees = builder.Locals;
+            RemoteBranchTrees = builder.Remotes;
+            OnPropertyChanged(nameof(HiddenLocalBranchCount));
+        }
+
         // [fork:custom-branch-sort] Persists current visual order into UIState; called after drag-drop completes
         public void SaveCustomBranchOrder(List<BranchTreeNode> nodes, bool isLocal)
         {
@@ -837,6 +907,10 @@ namespace SourceGit.ViewModels
             _branches.RemoveAll(b => b.IsLocal && b.Name.Equals(created.Name, StringComparison.Ordinal));
             _branches.Add(created);
 
+            // [fork:explicit-branches] Creating a branch here counts as opening it, checked out or not
+            if (!_uiStates.VisibleLocalBranches.Contains(created.FullName))
+                _uiStates.VisibleLocalBranches.Add(created.FullName);
+
             if (checkout)
             {
                 if (_currentBranch.IsDetachedHead)
@@ -900,6 +974,11 @@ namespace SourceGit.ViewModels
 
             checkouted.IsCurrent = true;
             checkouted.WorktreePath = FullPath;
+
+            // [fork:explicit-branches] Checking a branch out from inside SourceGit is what puts it on the allowlist
+            if (checkouted.IsLocal && !_uiStates.VisibleLocalBranches.Contains(checkouted.FullName))
+                _uiStates.VisibleLocalBranches.Add(checkouted.FullName);
+
             if (_historyFilterMode == Models.FilterMode.Included)
                 SetBranchFilterMode(checkouted, Models.FilterMode.Included, false, false);
 
@@ -1749,6 +1828,20 @@ namespace SourceGit.ViewModels
                 _uiStates.CustomRemoteBranchSortOrder);
             if (string.IsNullOrEmpty(_filter))
             {
+                // [fork:explicit-branches] Hide local branches the user never opened. The search box below
+                // deliberately bypasses this, so a hidden branch is always reachable by typing its name.
+                if (!_uiStates.ShowAllLocalBranches)
+                {
+                    var allowed = new List<Models.Branch>();
+                    foreach (var b in branches)
+                    {
+                        if (IsLocalBranchVisible(b))
+                            allowed.Add(b);
+                    }
+
+                    branches = allowed;
+                }
+
                 builder.SetExpandedNodes(_uiStates.ExpandedBranchNodesInSideBar);
                 builder.Run(branches, remotes, false);
 
